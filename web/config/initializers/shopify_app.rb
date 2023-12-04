@@ -4,6 +4,7 @@ ShopifyApp.configure do |config|
   config.webhooks = [
     # After a store owner uninstalls your app, Shopify invokes the APP_UNINSTALLED webhook
     # to let your app know.
+    { topic: "products/update", path: "api/webhooks/products_update" },
     { topic: "app/uninstalled", address: "api/webhooks/app_uninstalled" },
   ]
   config.application_name = "My Shopify App"

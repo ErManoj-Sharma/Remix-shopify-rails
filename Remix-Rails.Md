@@ -159,3 +159,45 @@ module ShopifyApp
    end
 end
 ```
+
+### Add a new webhook [Doc](https://shopify.dev/docs/api/admin-rest/2023-10/resources/webhook)
+```ruby
+rails g shopify_app:add_webhook --topic WEBHOOK_TOPIC --path webhooks/WEBHOOK_TOPIC
+```
+```ruby
+# products/update webhook 
+rails g shopify_app:add_webhook --topic products/update --path webhooks/products_update
+```
+The Above Command create following file and update  shopify_app.rb 
+```ruby
+# web/app/jobs/products_update_job.rb
+class ProductsUpdateJob < ActiveJob::Base
+  extend ShopifyAPI::Webhooks::Handler
+  class << self
+    def handle(topic:, shop:, body:)
+      perform_later(topic: topic, shop_domain: shop, webhook: body)
+    end
+  end
+
+  def perform(topic:, shop_domain:, webhook:)
+    shop = Shop.find_by(shopify_domain: shop_domain)
+
+    if shop.nil?
+      logger.error("#{self.class} failed: cannot find shop with domain '#{shop_domain}'")
+
+      raise ActiveRecord::RecordNotFound, "Shop Not Found"
+    end
+
+    shop.with_shopify_session do |session|
+    end
+  end
+end
+
+```
+```ruby
+# web/config/initializers/shopify_app.rb
+  config.webhooks = [
+   { topic: "products/update", path: "api/webhooks/products_update" },
+    { topic: "app/uninstalled", address: "api/webhooks/app_uninstalled"},
+   ]
+```
