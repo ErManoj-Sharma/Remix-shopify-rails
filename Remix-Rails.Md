@@ -160,57 +160,202 @@ module ShopifyApp
 end
 ```
 
-### Add a new webhook [Doc](https://shopify.dev/docs/api/admin-rest/2023-10/resources/webhook)
-```ruby
-rails g shopify_app:add_webhook --topic WEBHOOK_TOPIC --path webhooks/WEBHOOK_TOPIC
+## Add a new webhook [Doc](https://shopify.dev/docs/api/admin-rest/2023-10/resources/webhook)
+1. products/update webhook
+   ```ruby
+   rails g shopify_app:add_webhook --topic WEBHOOK_TOPIC --path webhooks/WEBHOOK_TOPIC
+   ```
+   ```ruby
+   # products/update webhook 
+   rails g shopify_app:add_webhook --topic products/update --path webhooks/products_update
+   ```
+   The Above Command create following file and update  shopify_app.rb 
+   ```ruby
+   # web/app/jobs/products_update_job.rb
+   class ProductsUpdateJob < ActiveJob::Base
+     extend ShopifyAPI::Webhooks::Handler
+     class << self
+       def handle(topic:, shop:, body:)
+         perform_later(topic: topic, shop_domain: shop, webhook: body)
+       end
+     end
+   
+     def perform(topic:, shop_domain:, webhook:)
+       shop = Shop.find_by(shopify_domain: shop_domain)
+   
+       if shop.nil?
+         logger.error("#{self.class} failed: cannot find shop with domain '#{shop_domain}'")
+   
+         raise ActiveRecord::RecordNotFound, "Shop Not Found"
+       end
+   
+       shop.with_shopify_session do |session|
+       end
+     end
+   end
+   
+   ```
+   ```ruby
+   # web/config/initializers/shopify_app.rb
+     config.webhooks = [
+      { topic: "products/update", path: "api/webhooks/products_update" },
+       { topic: "app/uninstalled", address: "api/webhooks/app_uninstalled"},
+      ]
+   ```
+2. bulk_operations_finish webhook
+   ```ruby
+   # bulk_operations/finish webhook 
+   rails g shopify_app:add_webhook --topic bulk_operations/finish --path webhooks/bulk_operations_finish
+   ```
+   The Above Command create following file and update  shopify_app.rb 
+   ```ruby
+   # web/app/jobs/products_update_job.rb
+   class BulkOperationsFinishJob < ActiveJob::Base
+     extend ShopifyAPI::Webhooks::Handler
+     # Query to execute bulk job 
+     BULKQUERYOUTPUT = <<~QUERY
+       query($id: ID!) {
+         node(id: $id) {
+           ... on BulkOperation {
+             status
+             url
+             partialDataUrl
+           }
+         }
+       }
+       QUERY
+     
+     class << self
+       def handle(topic:, shop:, body:)
+         perform_later(topic: topic, shop_domain: shop, webhook: body)
+       end
+     end
+   
+     def perform(topic:, shop_domain:, webhook:)
+       shop = Shop.find_by(shopify_domain: shop_domain)
+       id = arguments.first[:webhook]['admin_graphql_api_id']
+   
+       if shop.nil?
+         logger.error("#{self.class} failed: cannot find shop with domain '#{shop_domain}'")
+   
+         raise ActiveRecord::RecordNotFound, "Shop Not Found"
+       end
+   
+       shop.with_shopify_session do |session|
+         query_output = ShopifyAPI::Clients::Graphql::Admin.new(session:).query(
+                           query: BULKQUERYOUTPUT,
+                           variables: {id: id}
+         
+         # data url which contain data in json format                )
+         p "Data Url: #{query_output.body['data']['node']['url']}"
+       end
+     end
+    end
+   ```
+   ```ruby
+   # web/config/initializers/shopify_app.rb
+     config.webhooks = [
+       { topic: "products/update", path: "api/webhooks/products_update" },
+       { topic: "app/uninstalled", address: "api/webhooks/app_uninstalled"},
+       { topic: "bulk_operations/finish", path: "api/webhooks/bulk_operations_finish" },
+
+      ]
+   ```
+   Note :  Before using Orders Scopes
+   1. Go to Application Settings
+   2. go API Access 
+   3. Click on Access Request 
+   4. Take Necesssary Protected customer data access 
+
+To Use Webhooks in Effective Way 
+Follow these Instruction 
+
+1. Make a controller with Index Action 
+```shell
+rails g controller api/v1/shopify/fetch_orders create
+rails g controller api/v1/shopify/orders create destroy
 ```
+2. in routes use resource routes 
 ```ruby
-# products/update webhook 
-rails g shopify_app:add_webhook --topic products/update --path webhooks/products_update
-```
-The Above Command create following file and update  shopify_app.rb 
-```ruby
-# web/app/jobs/products_update_job.rb
-class ProductsUpdateJob < ActiveJob::Base
-  extend ShopifyAPI::Webhooks::Handler
-  class << self
-    def handle(topic:, shop:, body:)
-      perform_later(topic: topic, shop_domain: shop, webhook: body)
+# web/config/routes.rb
+namespace :api, defaults: { format: :json } do
+    namespace :v1 do
+      namespace :shopify do
+        resources :order_fetch ,  only: [:create]
+        resource :orders, only: [:create, :destroy]
+      end
     end
   end
-
-  def perform(topic:, shop_domain:, webhook:)
-    shop = Shop.find_by(shopify_domain: shop_domain)
-
-    if shop.nil?
-      logger.error("#{self.class} failed: cannot find shop with domain '#{shop_domain}'")
-
-      raise ActiveRecord::RecordNotFound, "Shop Not Found"
+```
+3. Make Service for Api Calls and Use them in Controller 
+```ruby
+# web/app/controllers/api/v1/shopify/order_fetch_controller.rb
+class Api::V1::Shopify::OrderFetchController < AuthenticatedController
+  def create
+    response = ShopifyServices::Shopify::OrderFetchService.call()
+    render json: {},status: :ok
+  end
+end
+```
+```ruby
+#web/app/services/shopify_services/shopify/order_fetch_service.rb
+module ShopifyServices 
+  module Shopify
+    class OrderFetchService < ShopifyBaseService
+      def initialize()
+        super()
+      end
+  
+      # Write you Query and bussiness logic here
+      def call
+        graphql_clientquery(query: GRAPHQL_QUERY)
+      end
+    end 
+  end
+end
+```
+```ruby
+# You can make a base service class
+# web/app/services/shopify_services/shopify_base_service.rb
+module ShopifyServices 
+  class ShopifyBaseService < ApplicationService
+    attr_reader :graphql_client
+  
+    ShopifySession = ShopifyAPI::Context.active_session
+  
+    def initialize()
+      super()
+      @session = ShopifySession
     end
-
-    shop.with_shopify_session do |session|
+  
+    def graphql_client
+      ShopifyAPI::Clients::Graphql::Admin.new(session: @session)
     end
   end
 end
+```   
 
-```
+## Add New Access Scope 
+[Add Scopes](https://shopify.dev/docs/apps/tools/cli/configuration#access_scopes) in `.toml` file with coma(,) seperated strings
 ```ruby
-# web/config/initializers/shopify_app.rb
-  config.webhooks = [
-   { topic: "products/update", path: "api/webhooks/products_update" },
-    { topic: "app/uninstalled", address: "api/webhooks/app_uninstalled"},
-   ]
+[access_scopes]
+scopes = "write_products,read_orders,write_orders"
 ```
+push scope to partner configuration by 
+```shell
+npm run shopify app config push
+```
+
 ## Installation guide 
 1. Clone the Repository
    ```shell
    git clone https://github.com/ErManoj-Sharma/Remix-shopify-rails.git
    ```
-1. change directory 
+2. change directory 
    ```shell
    cd Remix-shopify-rails/
    ```
-1. Update Application name in `pacakage.json` and `pacakage-lock.json`
+3. Update Application name in `pacakage.json` and `pacakage-lock.json`
    ```javascript
    {
      "name": "MyAppName",
@@ -220,19 +365,19 @@ end
      :
    }
    ```
-1. run 
+4. run 
    ``` 
    npm install
    ```
-2. Change directory 
+5. Change directory 
    ```shell
    cd web/
    ```
-3. Genereate a new Credientials file 
+6. Genereate a new Credientials file 
    ```shell
    EDITOR="code --wait" bin/rails credentials:edit
    ```
-4. Update Database.yml file 
+7. Update Database.yml file 
    ```shell
    # web/config/database.yml
    default: &default
@@ -245,7 +390,7 @@ end
      host: HOST # localhost
      port: PORT # 5432
    ```
-5. Create Database and Migrate 
+8. Create Database and Migrate 
    ##### create database
    ```shell
    rails db:create
@@ -258,11 +403,11 @@ end
    ```shell
    rails db:reset
    ```
-6. go back 
+9. go back 
    ```shell
    cd ..
    ```
-7. start server 
+10. start server 
    ```shell
    npm run dev 
    ```

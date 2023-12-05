@@ -26,6 +26,27 @@ export function ProductsCard() {
     },
   });
 
+  function getOrders() {
+    fetch("/api/v1/shopify/order_fetch", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+    })
+    .catch(error => {
+      console.error('Fetch error:', error);
+    });
+  }
+
+
   const toastMarkup = toastProps.content && !isRefetchingCount && (
     <Toast {...toastProps} onDismiss={() => setToastProps(emptyToastProps)} />
   );
@@ -60,7 +81,7 @@ export function ProductsCard() {
           content: t("ProductsCard.populateProductsButton", {
             count: productsCount,
           }),
-          onAction: handlePopulate,
+          onAction: getOrders,
           loading: isLoading,
         }}
       >
