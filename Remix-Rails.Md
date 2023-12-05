@@ -201,3 +201,68 @@ end
     { topic: "app/uninstalled", address: "api/webhooks/app_uninstalled"},
    ]
 ```
+## Installation guide 
+1. Clone the Repository
+   ```shell
+   git clone https://github.com/ErManoj-Sharma/Remix-shopify-rails.git
+   ```
+1. change directory 
+   ```shell
+   cd Remix-shopify-rails/
+   ```
+1. Update Application name in `pacakage.json` and `pacakage-lock.json`
+   ```javascript
+   {
+     "name": "MyAppName",
+     "version": "1.0.1",
+     "license": "UNLICENSED",
+     :
+     :
+   }
+   ```
+1. run 
+   ``` 
+   npm install
+   ```
+2. Change directory 
+   ```shell
+   cd web/
+   ```
+3. Genereate a new Credientials file 
+   ```shell
+   EDITOR="code --wait" bin/rails credentials:edit
+   ```
+4. Update Database.yml file 
+   ```shell
+   # web/config/database.yml
+   default: &default
+     adapter: postgresql
+     encoding: unicode
+     database: MyDabaseName
+     pool: 5
+     username: POSTGRES_USERNAME # postgres
+     password: POSTGRES_PASSWORD # postgres
+     host: HOST # localhost
+     port: PORT # 5432
+   ```
+5. Create Database and Migrate 
+   ##### create database
+   ```shell
+   rails db:create
+   ```
+   ##### migrate database
+   ```shell
+   rails db:migrate
+   ```
+   ##### reset database
+   ```shell
+   rails db:reset
+   ```
+6. go back 
+   ```shell
+   cd ..
+   ```
+7. start server 
+   ```shell
+   npm run dev 
+   ```
