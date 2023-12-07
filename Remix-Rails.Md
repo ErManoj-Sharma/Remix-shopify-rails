@@ -345,6 +345,33 @@ push scope to partner configuration by
 ```shell
 npm run shopify app config push
 ```
+## Add New theme Extension [Link](https://shopify.dev/docs/apps/online-store/theme-app-extensions/getting-started) 
+1. create new theme Extension
+   ```ruby
+   npm run shopify app generate extension
+   ```
+   ```shell
+   ?  Type of extension?
+   ✔  Theme app extension
+   ```
+   ```shell
+   ?  Name your extension:
+   ✔  YOUR_EXTENSION_NAME
+   ```
+   `Your extension was created in extensions/YOUR_EXTENSION_NAME.`
+1. start the server 
+   ```shell
+   npm run dev
+   ```
+3. To use this extention
+    
+    a. Go to https://admin.shopify.com/store/YOUR_SHOPIFY_DOMAIN
+  
+    b.   Sales Channel > Online Store > Customize 
+  
+    d. Click on `add section`  or `add block` 
+  
+    e. You can see `YOUR_EXTENSION_NAME` in `apps`  
 
 ## Installation guide 
 1. Clone the Repository
