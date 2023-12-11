@@ -438,3 +438,242 @@ npm run shopify app config push
    ```shell
    npm run dev 
    ```
+
+### Add App Data Meta fields 
+```ruby
+# Add this Gem
+gem install httparty
+```
+To add App data Meta fields we need to perfrom 3 tasks
+  1. get App Installation ID 
+  2. Set App Data Metafields
+  3. Use the App Data Metafields in Liquid
+   
+#### get App installation ID 
+1. By `currentAppInstallation`:  
+   In this method we use currentAppInstallation query to get App installation ID 
+
+    ```ruby
+    # graphql end point 
+    graphql_endpoint = 'https://<YOUR_SHOP_NAME>.myshopify.com/admin/api/<API_VERSION>/graphql.json'
+    ```
+    ```ruby
+    # get access token of shop
+    access_token = < Shop.Shopify_Token >
+    ```
+    ```ruby
+    # graphql query to fetch App installation ID
+    graphql_query = <<~GRAPHQL
+      query {
+        currentAppInstallation {
+          id
+          app {
+            id
+            title
+          }
+        }
+      }
+    GRAPHQL
+    ```
+    ```ruby
+    # Make the POST request
+    response = HTTP.headers('Content-Type' => 'application/json', 'X-Shopify-Access-Token' => access_token)
+                  .post(graphql_endpoint, json: { query: graphql_query })
+    
+    # Parse the JSON response
+    parsed_response = JSON.parse(response.body)
+    
+    # Access the data or handle errors
+    if parsed_response.key?('data') && parsed_response['data'].key?('currentAppInstallation')
+      app_installation_id = parsed_response['data']['currentAppInstallation']['id']
+      puts "App Installation ID: #{app_installation_id}"
+    else
+      puts 'GraphQL request failed'
+      puts parsed_response
+    end
+    ```
+    ```ruby
+    # You Wil recive a Id of the app installation
+    "id": "gid://shopify/AppInstallation/XXXXXXXXXX"
+    ```
+2. By App API Key (Prefered)
+     ```ruby
+    # graphql end point 
+    graphql_endpoint = 'https://<YOUR_SHOP_NAME>.myshopify.com/admin/api/<API_VERSION>/graphql.json'
+    ```
+    ```ruby
+    # get access token of shop
+    access_token = < Shop.Shopify_Token >
+    ```
+     ```ruby
+    # graphql query to fetch App installation ID
+    graphql_query = <<~GRAPHQL
+          query {
+            appByKey(apiKey: "APP_API_KEY") {
+              id
+              installation{
+                  id
+              }
+            }
+    }
+    GRAPHQL
+    ```
+    ```ruby
+    # Make the POST request
+    response = HTTP.headers('Content-Type' => 'application/json', 'X-Shopify-Access-Token' => access_token)
+                  .post(graphql_endpoint, json: { query: graphql_query })
+    
+    # Parse the JSON response
+    parsed_response = JSON.parse(response.body)
+    
+    # Access the data or handle errors
+    if parsed_response.key?('data') && parsed_response['data'].key?('currentAppInstallation')
+      app_installation_id = parsed_response['data']['currentAppInstallation']['id']
+      puts "App Installation ID: #{app_installation_id}"
+    else
+      puts 'GraphQL request failed'
+      puts parsed_response
+    end
+    ```
+    ```ruby
+    # You Wil recive a Id of the app installation
+    "id": "gid://shopify/AppInstallation/XXXXXXXXXX"
+    ```
+####  Setting App data Meta Fields
+```ruby
+# graphql end point 
+graphql_endpoint = 'https://<YOUR_SHOP_NAME>.myshopify.com/admin/api/<API_VERSION>/graphql.json'
+```
+
+```ruby
+# get access token of shop
+access_token = < Shop.Shopify_Token >
+```
+```ruby
+graphql_query = <<~GRAPHQL
+    mutation CreateAppDataMetafield($metafieldsSetInput: [MetafieldsSetInput!]!) {
+      metafieldsSet(metafields: $metafieldsSetInput) {
+        metafields {
+          id
+          namespace
+          key
+        }
+        userErrors {
+          field
+          message
+        }
+      }
+    }
+  GRAPHQL
+
+variables = {
+    "metafieldsSetInput" => [
+      {
+        "namespace" => "YOUR_NAME_SPACE",
+        "key" => "YOUR_CUSTOME_KEY",
+        "type" => "single_line_text_field", # MetafieldsType 
+        "value" => "VALUE_OF_KEY",
+        "ownerId" => "gid://shopify/AppInstallation/XXXXXX"
+      }
+    ]
+  }
+```
+
+ ```ruby
+    # Make the POST request
+    response = HTTP.headers('Content-Type' => 'application/json', 'X-Shopify-Access-Token' => access_token)
+                  .post(graphql_endpoint, json: { query: graphql_query, variables: variables })
+    p response.data 
+    # "data": {
+    #     "metafieldsSet": {
+    #         "metafields": [
+    #             {
+    #                 "id": "gid://shopify/Metafield/XXXXXXX",
+    #                 "namespace": "YOUR_NAME_SPACE",
+    #                 "key": "YOUR_CUSTOME_KEY"
+    #             }
+    #         ],
+    #         "userErrors": []
+    #     }
+    # }               
+  ```
+### Rails 
+```ruby
+Shop.last.with_shopify_session do |t| 
+  @session = t 
+end
+```
+```ruby
+graphql_client = ShopifyAPI::Clients::Graphql::Admin.new(session: @session)
+```
+```ruby
+# By currentAppInstallation
+QUERY = <<~GRAPHQL
+  query {
+    currentAppInstallation {
+      id
+      app {
+        id
+        title
+      }
+    }
+  }
+GRAPHQL
+```
+```ruby
+# By App API Key
+QUERY = <<~GRAPHQL
+  query {
+  appByKey(apiKey: ENV['SHOPIFY_API_KEY']) {
+    id
+    installation{
+        id
+    }
+  }
+}
+GRAPHQL
+```
+```ruby
+# Get App InstallationID from response
+response = graphql_client.query(query: QUERY)
+```
+---
+```ruby
+QUERY = <<~QUERY
+  mutation CreateAppDataMetafield($metafieldsSetInput: [MetafieldsSetInput!]!) {
+    metafieldsSet(metafields: $metafieldsSetInput) {
+      metafields {
+        id
+        namespace
+        key
+      }
+      userErrors {
+        field
+        message
+      }
+    }
+  }
+QUERY
+```
+```ruby
+VARIABLES = {
+  "metafieldsSetInput" => [
+    {
+      "namespace" => "user_data",
+      "key" => "username",
+      "type" => "single_line_text_field",
+      "value" => "Dummy User Name",
+      "ownerId" => "gid://shopify/AppInstallation/660646986007"
+    }
+  ]
+}
+```
+```ruby
+# response return metafieldsSet
+response = graphql_client.query(query: QUERY, variables: VARIABLES)
+```
+####  use in Liquid File
+```ruby
+{{ app.metafields.NAMESPACE.KEY.VALUE }}
+{{ app.metafields.user_data.username}}  #=> Dummy User Name
+```

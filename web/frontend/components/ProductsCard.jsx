@@ -50,6 +50,26 @@ export function ProductsCard() {
     }
   };
 
+  const testGraphqlQuery = ()=> {
+    fetch("/api/v1/shopify/test_query", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+    })
+    .then(response => {
+      if (!response.ok) {
+        throw new Error('Network response was not ok');
+      }
+      return response.json();
+    })
+    .then(data => {
+    })
+    .catch(error => {
+      console.error('Fetch error:', error);
+    });
+  }
+
   return (
     <>
       {toastMarkup}

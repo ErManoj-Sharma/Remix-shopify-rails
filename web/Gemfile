@@ -79,3 +79,5 @@ gem "shopify_app", "~> 21.7"
 
 # To use Env variables
 gem 'dotenv-rails', groups: [:development, :test]
+gem "shopify_api" 
+gem "httparty", "~> 0.21.0"
